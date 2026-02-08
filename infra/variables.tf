@@ -9,16 +9,10 @@ variable "location" {
   default     = "eastus"
 }
 
-variable "python_version" {
+variable "container_image" {
   type        = string
-  description = "Python version for App Service."
-  default     = "3.11"
-}
-
-variable "app_service_sku" {
-  type        = string
-  description = "App Service plan SKU (e.g., B1)."
-  default     = "F1"
+  description = "Container image for the API."
+  default     = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest"
 }
 
 variable "lightx_api_key" {

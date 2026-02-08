@@ -42,67 +42,138 @@ resource "azurerm_storage_share" "prompts" {
   quota                = 5
 }
 
-resource "azurerm_service_plan" "plan" {
-  name                = "${local.prefix_clean}-plan"
+resource "azurerm_log_analytics_workspace" "law" {
+  name                = "${local.prefix_clean}-law"
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  os_type             = "Linux"
-  sku_name            = var.app_service_sku
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
   tags                = var.tags
 }
 
-resource "azurerm_linux_web_app" "app" {
-  name                = "${local.prefix_clean}-api-${random_string.suffix.result}"
+resource "azurerm_container_registry" "acr" {
+  name                = substr("${local.prefix_clean}acr${random_string.suffix.result}", 0, 24)
   resource_group_name = azurerm_resource_group.rg.name
   location            = azurerm_resource_group.rg.location
-  service_plan_id     = azurerm_service_plan.plan.id
-  https_only          = true
+  sku                 = "Basic"
+  admin_enabled       = true
   tags                = var.tags
+}
 
-  site_config {
-    always_on       = false
-    http2_enabled   = true
-    ftps_state      = "Disabled"
-    app_command_line = "python -m uvicorn local_app.app:app --host 0.0.0.0 --port 8000"
+resource "azurerm_container_app_environment" "env" {
+  name                       = "${local.prefix_clean}-env"
+  location                   = azurerm_resource_group.rg.location
+  resource_group_name        = azurerm_resource_group.rg.name
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.law.id
+  tags                       = var.tags
+}
 
-    application_stack {
-      python_version = var.python_version
+resource "azurerm_container_app_environment_storage" "presets" {
+  name                         = "presets"
+  container_app_environment_id = azurerm_container_app_environment.env.id
+  account_name                 = azurerm_storage_account.sa.name
+  share_name                   = azurerm_storage_share.presets.name
+  access_key                   = azurerm_storage_account.sa.primary_access_key
+  access_mode                  = "ReadOnly"
+}
+
+resource "azurerm_container_app_environment_storage" "sessions" {
+  name                         = "sessions"
+  container_app_environment_id = azurerm_container_app_environment.env.id
+  account_name                 = azurerm_storage_account.sa.name
+  share_name                   = azurerm_storage_share.sessions.name
+  access_key                   = azurerm_storage_account.sa.primary_access_key
+  access_mode                  = "ReadWrite"
+}
+
+resource "azurerm_container_app_environment_storage" "prompts" {
+  name                         = "prompts"
+  container_app_environment_id = azurerm_container_app_environment.env.id
+  account_name                 = azurerm_storage_account.sa.name
+  share_name                   = azurerm_storage_share.prompts.name
+  access_key                   = azurerm_storage_account.sa.primary_access_key
+  access_mode                  = "ReadOnly"
+}
+
+resource "azurerm_container_app" "app" {
+  name                         = "${local.prefix_clean}-api"
+  container_app_environment_id = azurerm_container_app_environment.env.id
+  resource_group_name          = azurerm_resource_group.rg.name
+  revision_mode                = "Single"
+  tags                         = var.tags
+
+  registry {
+    server               = azurerm_container_registry.acr.login_server
+    username             = azurerm_container_registry.acr.admin_username
+    password_secret_name = "acr-password"
+  }
+
+  secret {
+    name  = "acr-password"
+    value = azurerm_container_registry.acr.admin_password
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
     }
   }
 
-  app_settings = {
-    WEBSITES_PORT       = "8000"
-    IMG_ROOT            = "/data/presets"
-    SESSIONS_ROOT       = "/data/sessions"
-    PROMPTS_XLSX        = "/data/prompts/HairstylePresertPromts.xlsx"
-    LIGHTX_API_KEY      = var.lightx_api_key
-    SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
-  }
+  template {
+    container {
+      name   = "api"
+      image  = var.container_image
+      cpu    = 0.5
+      memory = "1Gi"
 
-  storage_account {
-    name         = "presets"
-    type         = "AzureFiles"
-    account_name = azurerm_storage_account.sa.name
-    share_name   = azurerm_storage_share.presets.name
-    access_key   = azurerm_storage_account.sa.primary_access_key
-    mount_path   = "/data/presets"
-  }
+      env {
+        name  = "IMG_ROOT"
+        value = "/data/presets"
+      }
+      env {
+        name  = "SESSIONS_ROOT"
+        value = "/data/sessions"
+      }
+      env {
+        name  = "PROMPTS_XLSX"
+        value = "/data/prompts/HairstylePresertPromts.xlsx"
+      }
+      env {
+        name  = "LIGHTX_API_KEY"
+        value = var.lightx_api_key
+      }
 
-  storage_account {
-    name         = "sessions"
-    type         = "AzureFiles"
-    account_name = azurerm_storage_account.sa.name
-    share_name   = azurerm_storage_share.sessions.name
-    access_key   = azurerm_storage_account.sa.primary_access_key
-    mount_path   = "/data/sessions"
-  }
+      volume_mounts {
+        name = "presets"
+        path = "/data/presets"
+      }
+      volume_mounts {
+        name = "sessions"
+        path = "/data/sessions"
+      }
+      volume_mounts {
+        name = "prompts"
+        path = "/data/prompts"
+      }
+    }
 
-  storage_account {
-    name         = "prompts"
-    type         = "AzureFiles"
-    account_name = azurerm_storage_account.sa.name
-    share_name   = azurerm_storage_share.prompts.name
-    access_key   = azurerm_storage_account.sa.primary_access_key
-    mount_path   = "/data/prompts"
+    volume {
+      name         = "presets"
+      storage_name = azurerm_container_app_environment_storage.presets.name
+      storage_type = "AzureFile"
+    }
+    volume {
+      name         = "sessions"
+      storage_name = azurerm_container_app_environment_storage.sessions.name
+      storage_type = "AzureFile"
+    }
+    volume {
+      name         = "prompts"
+      storage_name = azurerm_container_app_environment_storage.prompts.name
+      storage_type = "AzureFile"
+    }
   }
 }

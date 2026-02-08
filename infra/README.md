@@ -41,8 +41,5 @@ Use scripts in `scripts/` after apply to upload:
 - `img/` → `presets` share
 - `HairstylePresertPromts.xlsx` → `prompts` share
 
-## 5) Deploy app
-Use GitHub Actions workflow or zip deploy:
-```
-az webapp deploy --resource-group <rg> --name <app> --src-path . --type zip
-```
+## 5) Deploy app (Container Apps)
+Use GitHub Actions workflow to build + deploy the container image.

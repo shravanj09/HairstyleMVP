@@ -16,12 +16,12 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 APP_ROOT = Path(__file__).resolve().parent
-IMG_ROOT = Path(r"D:\saloon\Looks\img")
-SESSIONS_ROOT = Path(r"D:\saloon\Looks\sessions")
+IMG_ROOT = Path(os.getenv("IMG_ROOT", r"D:\saloon\Looks\img"))
+SESSIONS_ROOT = Path(os.getenv("SESSIONS_ROOT", r"D:\saloon\Looks\sessions"))
 STATIC_ROOT = APP_ROOT / "static"
-PROMPTS_XLSX = Path(r"D:\saloon\Looks\HairstylePresertPromts.xlsx")
+PROMPTS_XLSX = Path(os.getenv("PROMPTS_XLSX", r"D:\saloon\Looks\HairstylePresertPromts.xlsx"))
 
-LIGHTX_API_KEY = "3d98e30f751b414bad62135052946fdd_45651c9fbb36425f94a8e27587ed8afe_andoraitools"#os.getenv("LIGHTX_API_KEY")
+LIGHTX_API_KEY = os.getenv("LIGHTX_API_KEY")
 LIGHTX_UPLOAD_URL = "https://api.lightxeditor.com/external/api/v2/uploadImageUrl"
 LIGHTX_HAIRSTYLE_URL = "https://api.lightxeditor.com/external/api/v2/hairstyle"
 LIGHTX_STATUS_URL = "https://api.lightxeditor.com/external/api/v2/order-status"

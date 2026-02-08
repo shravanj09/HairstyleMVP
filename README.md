@@ -20,7 +20,11 @@ Terraform:
 - `TFSTATE_KEY`
 
 Deploy:
-- `AZURE_WEBAPP_NAME` (Terraform output `web_app_name`)
+- `AZURE_RG`
+- `AZURE_CONTAINERAPP_NAME`
+- `ACR_LOGIN_SERVER`
+- `ACR_USERNAME`
+- `ACR_PASSWORD`
 
 ## Deploy Flow
 1. Run Terraform (workflow or local).
