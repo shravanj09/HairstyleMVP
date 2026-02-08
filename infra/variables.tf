@@ -18,7 +18,7 @@ variable "python_version" {
 variable "app_service_sku" {
   type        = string
   description = "App Service plan SKU (e.g., B1)."
-  default     = "B1"
+  default     = "F1"
 }
 
 variable "lightx_api_key" {
