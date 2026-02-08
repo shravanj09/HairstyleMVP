@@ -29,3 +29,4 @@ jobs:
           registryPassword: ${{ secrets.ACR_PASSWORD }}
           imageToBuild: ${{ secrets.ACR_LOGIN_SERVER }}/looks-api:${{ github.sha }}
           dockerfilePath: Dockerfile
+ 
