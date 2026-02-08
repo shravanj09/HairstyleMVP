@@ -31,7 +31,7 @@ Deploy:
 2. Upload presets + prompts via `scripts/upload_presets.ps1`.
 3. Push `local_app/` changes → auto deploy to App Service.
 
-## Local Run
+### Local Run
 ```
 python -m pip install fastapi uvicorn python-multipart openpyxl requests
 python -m uvicorn local_app.app:app --reload --host 0.0.0.0 --port 8000
