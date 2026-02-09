@@ -279,6 +279,21 @@
       opacity: 0;
       transition: opacity .15s ease;
     }
+    .tile .preset-id {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.85);
+      color: #1b1b1b;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      font-family: "Syne", "Sora", "Segoe UI", Arial, sans-serif;
+      text-shadow: 0 1px 4px rgba(255,255,255,.7);
+    }
     .tile:hover .save { opacity: 1; }
     .tile-label {
       position: absolute;
@@ -1040,12 +1055,14 @@
       tile.className = `tile ${offsetClass} ${featureClass} ${staggerClass}`.trim();
       tile.dataset.presetId = item.id;
       const label = labelFromFilename(item.filename || '');
-      tile.innerHTML = `
-        <img src="${item.imageUrl}" alt="${item.major}">
-        <div class="save">Try Style</div>
-        <div class="tile-major">${item.major || ''}</div>
-        <div class="tile-label">${label}</div>
-      `;
+        const idText = (item.id || '').split('__').pop()?.replace(/\.[^/.]+$/, '') || '';
+        tile.innerHTML = `
+          <img src="${item.imageUrl}" alt="${item.major}">
+          <div class="preset-id">${idText}</div>
+          <div class="save">Try Style</div>
+          <div class="tile-major">${item.major || ''}</div>
+          <div class="tile-label">${label}</div>
+        `;
       tile.addEventListener('click', () => onPresetClick(item));
       return tile;
     }
