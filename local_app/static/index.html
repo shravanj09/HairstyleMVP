@@ -190,6 +190,20 @@
       border-style: solid;
       font-weight: 600;
     }
+    #snapBtn {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+      min-width: 0;
+      height: auto;
+      padding: 0;
+    }
+    .snap-logo {
+      height: 24px;
+      width: auto;
+      display: block;
+      pointer-events: none;
+    }
     .btn.attention {
       box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.5), 0 0 0 6px rgba(255, 126, 230, 0.35), 0 16px 32px rgba(0, 0, 0, 0.12);
       background: linear-gradient(90deg, rgba(0, 212, 255, 0.4), rgba(255, 126, 230, 0.45));
@@ -727,7 +741,9 @@
       <button class="nav-item" data-cat="Gallery">Gallery</button>
       <div class="nav-underline" id="navUnderline"></div>
       <div class="spacer"></div>
-      <button class="btn primary" id="snapBtn">Snap Your Photo</button>
+      <button class="btn primary" id="snapBtn" aria-label="Snap Your Photo">
+        <img class="snap-logo" src="/snap.png" alt="Snap Your Photo" />
+      </button>
       
       <input id="fileInput" type="file" accept="image/*" style="display:none" />
     </div>
