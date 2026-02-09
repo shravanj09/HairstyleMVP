@@ -51,6 +51,7 @@ class Preset:
             "category": self.category,
             "major": self.major,
             "filename": self.filename,
+            "displayId": IDS_BY_FILENAME.get(self.filename.lower(), ""),
             "imageUrl": f"/img/{self.category}/{self.major}/{self.filename}",
         }
 
@@ -81,6 +82,7 @@ def scan_presets() -> Dict[str, Preset]:
 
 PRESETS: Dict[str, Preset] = scan_presets()
 PROMPTS_BY_FILENAME: Dict[str, str] = {}
+IDS_BY_FILENAME: Dict[str, str] = {}
 
 
 @app.on_event("startup")
@@ -91,6 +93,7 @@ def ensure_dirs() -> None:
 
 def load_prompts() -> None:
     PROMPTS_BY_FILENAME.clear()
+    IDS_BY_FILENAME.clear()
     if not PROMPTS_XLSX.exists():
         print(f"[prompts] file not found: {PROMPTS_XLSX}")
         return
@@ -105,9 +108,11 @@ def load_prompts() -> None:
         header_map = {str(h).strip(): idx for idx, h in enumerate(headers) if h}
         if "Prompt" not in header_map or "ImagePath" not in header_map:
             continue
+        id_idx = header_map.get("ID")
         prompt_idx = header_map["Prompt"]
         path_idx = header_map["ImagePath"]
         for row in ws.iter_rows(min_row=2, values_only=True):
+            row_id = row[id_idx] if id_idx is not None and id_idx < len(row) else None
             prompt = row[prompt_idx] if prompt_idx < len(row) else None
             image_path = row[path_idx] if path_idx < len(row) else None
             if not prompt or not image_path:
@@ -118,6 +123,10 @@ def load_prompts() -> None:
             else:
                 filename = Path(image_str).name.lower()
             PROMPTS_BY_FILENAME[filename] = str(prompt).strip()
+            if row_id is not None:
+                if isinstance(row_id, float) and row_id.is_integer():
+                    row_id = int(row_id)
+                IDS_BY_FILENAME[filename] = str(row_id).strip()
     print(f"[prompts] loaded {len(PROMPTS_BY_FILENAME)} prompts from {PROMPTS_XLSX}")
 
 
