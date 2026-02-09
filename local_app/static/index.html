@@ -23,6 +23,7 @@
       font-family: "Sora", "Segoe UI", Arial, sans-serif;
       color: var(--ink);
       background: linear-gradient(140deg, #f9f9ff 0%, #f2fbff 45%, #fff6fb 100%);
+      overflow-x: hidden;
     }
 
     .screen {
@@ -45,6 +46,8 @@
       gap: 16px;
       background: #ffffff;
       position: relative;
+      width: 100%;
+      overflow: hidden;
     }
     .logo-img {
       width: 77px;
@@ -108,6 +111,29 @@
       pointer-events: none;
     }
     .spacer { flex: 1; }
+
+    @media (max-width: 860px) {
+      .topnav {
+        height: auto;
+        flex-wrap: wrap;
+        gap: 10px;
+        padding: 10px 12px;
+      }
+      .logo-img {
+        width: 54px;
+        height: 54px;
+      }
+      .spacer {
+        flex-basis: 100%;
+        height: 0;
+      }
+      .nav-underline {
+        display: none;
+      }
+      #snapBtn {
+        margin-left: auto;
+      }
+    }
     .camera-choice {
       position: absolute;
       top: 58px;
@@ -204,6 +230,7 @@
       min-height: 44px;
       cursor: pointer;
       -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
     .snap-logo {
       height: 24px;
