@@ -91,6 +91,7 @@ def ensure_dirs() -> None:
 def load_prompts() -> None:
     PROMPTS_BY_FILENAME.clear()
     if not PROMPTS_XLSX.exists():
+        print(f"[prompts] file not found: {PROMPTS_XLSX}")
         return
     import openpyxl
 
@@ -112,6 +113,15 @@ def load_prompts() -> None:
                 continue
             filename = Path(str(image_path)).name.lower()
             PROMPTS_BY_FILENAME[filename] = str(prompt).strip()
+    print(f"[prompts] loaded {len(PROMPTS_BY_FILENAME)} prompts from {PROMPTS_XLSX}")
+
+
+@app.get("/api/prompts/status")
+def prompts_status() -> Dict[str, int]:
+    return {
+        "loaded_prompts": len(PROMPTS_BY_FILENAME),
+        "known_presets": len(PRESETS),
+    }
 
 
 def get_prompt_for_preset(preset: Preset) -> str | None:
