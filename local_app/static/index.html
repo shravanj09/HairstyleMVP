@@ -434,6 +434,11 @@
       }
     }
     .status { display: none; }
+    .status.visible { display: block; }
+    .status.error {
+      color: #b00020;
+      font-weight: 700;
+    }
     .preview-title { display: none; }
     .image-modal {
       position: fixed;
@@ -952,12 +957,23 @@
       }
     }
 
-    function setStatus(msg) { statusEl.textContent = msg; }
+    function setStatus(msg) {
+      statusEl.textContent = msg;
+      statusEl.classList.remove('error');
+      statusEl.classList.remove('visible');
+    }
+    function setStatusError(msg) {
+      statusEl.textContent = msg;
+      statusEl.classList.add('error');
+      statusEl.classList.add('visible');
+    }
     function setProcessing(on) {
       heroProcessing.style.display = on ? 'flex' : 'none';
     }
     function setStatusLoading(msg) {
       statusEl.textContent = msg;
+      statusEl.classList.remove('error');
+      statusEl.classList.remove('visible');
       setProcessing(true);
     }
     function clearStatusLoading() {
@@ -1096,7 +1112,7 @@
 
     async function onPresetClick(item) {
       if (!latestPhotoUrl) {
-        setStatus('Upload a photo first.');
+        setStatusError('Upload a photo first.');
         const snapBtn = document.getElementById('snapBtn');
         snapBtn.classList.add('attention');
         snapBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1110,6 +1126,23 @@
       loadCategoryPresets(item.category);
       setStatusLoading('Generating…');
       const res = await fetch(`/api/hairstyle/apply?sessionId=${encodeURIComponent(sessionId)}&presetId=${encodeURIComponent(item.id)}`, { method: 'POST' });
+      if (!res.ok) {
+        let errorText = `Request failed (${res.status})`;
+        try {
+          const data = await res.json();
+          if (data && data.detail) errorText = data.detail;
+        } catch (err) {
+          try {
+            const text = await res.text();
+            if (text) errorText = text;
+          } catch (err2) {
+            // ignore
+          }
+        }
+        clearStatusLoading();
+        setStatusError(errorText);
+        return;
+      }
       const data = await res.json();
       showHero(data.resultUrl);
       activeCategory = item.category;
