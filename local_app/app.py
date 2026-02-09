@@ -2,7 +2,7 @@
 
 import shutil
 import uuid
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Dict, List
 
 import json
@@ -112,7 +112,11 @@ def load_prompts() -> None:
             image_path = row[path_idx] if path_idx < len(row) else None
             if not prompt or not image_path:
                 continue
-            filename = Path(str(image_path)).name.lower()
+            image_str = str(image_path).strip()
+            if "\\" in image_str and "/" not in image_str:
+                filename = PureWindowsPath(image_str).name.lower()
+            else:
+                filename = Path(image_str).name.lower()
             PROMPTS_BY_FILENAME[filename] = str(prompt).strip()
     print(f"[prompts] loaded {len(PROMPTS_BY_FILENAME)} prompts from {PROMPTS_XLSX}")
 
