@@ -666,7 +666,7 @@
       height: 100%;
       display: block;
       object-fit: cover;
-      object-position: 50% 40%;
+      object-position: 50% 30%;
       transform: scaleX(-1);
     }
     .camera-capture {
@@ -1383,7 +1383,7 @@
       overlay.height = Math.floor(rect.height);
     }
 
-    const CAMERA_BIAS_Y = window.matchMedia('(max-width: 860px)').matches ? -0.18 : -0.1;
+    const CAMERA_BIAS_Y = window.matchMedia('(max-width: 860px)').matches ? -0.28 : -0.1;
 
     function getCoverTransform() {
       const rect = cameraVideo.getBoundingClientRect();
