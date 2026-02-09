@@ -8,6 +8,7 @@ from typing import Dict, List
 import json
 import os
 import time
+import difflib
 
 import requests
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
@@ -122,6 +123,14 @@ def prompts_status() -> Dict[str, int]:
         "loaded_prompts": len(PROMPTS_BY_FILENAME),
         "known_presets": len(PRESETS),
     }
+
+
+@app.get("/api/prompts/lookup")
+def prompts_lookup(filename: str) -> Dict[str, object]:
+    key = Path(filename).name.lower()
+    exists = key in PROMPTS_BY_FILENAME
+    matches = difflib.get_close_matches(key, PROMPTS_BY_FILENAME.keys(), n=5, cutoff=0.6)
+    return {"filename": key, "exists": exists, "matches": matches}
 
 
 def get_prompt_for_preset(preset: Preset) -> str | None:
