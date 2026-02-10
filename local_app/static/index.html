@@ -133,6 +133,9 @@
       #snapBtn {
         margin-left: auto;
       }
+      #snapBtn {
+        display: none;
+      }
     }
     .camera-choice {
       position: absolute;
@@ -241,7 +244,7 @@
     .btn.attention {
       box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.5), 0 0 0 6px rgba(255, 126, 230, 0.35), 0 16px 32px rgba(0, 0, 0, 0.12);
       background: linear-gradient(90deg, rgba(0, 212, 255, 0.4), rgba(255, 126, 230, 0.45));
-      animation: pulse 1.2s ease-in-out infinite;
+      animation: pulse 0.7s ease-in-out infinite;
     }
     @keyframes pulse {
       0% { transform: scale(1); }
@@ -384,6 +387,7 @@
       color: var(--muted);
       background: #f6f6fb;
       font-weight: 600;
+      position: relative;
     }
     .tile.hero.collage {
       padding: 8px;
@@ -403,6 +407,22 @@
       object-fit: cover;
       border-radius: 20px;
       box-shadow: 0 6px 16px rgba(0,0,0,.08);
+    }
+    .hero-upload {
+      position: absolute;
+      left: 12px;
+      bottom: 12px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 2px solid var(--line);
+      background: #ffffff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      font-family: "Syne", "Sora", "Segoe UI", Arial, sans-serif;
+      box-shadow: 0 8px 18px rgba(0,0,0,.08);
     }
     .tile .meta { display: none; }
 
@@ -1060,7 +1080,12 @@
 
     function openImageModal() {
       if (!heroImg.src) return;
-      imageModalImg.src = heroImg.src;
+      openImageModalWith(heroImg.src);
+    }
+
+    function openImageModalWith(url) {
+      if (!url) return;
+      imageModalImg.src = url;
       imageModal.classList.add('active');
     }
 
@@ -1157,9 +1182,21 @@
           <div class="hero-collage">
             ${collageItems.map((item) => `<img src="${item.imageUrl}" alt="${item.major}">`).join('')}
           </div>
+          <button class="hero-upload" type="button">Upload your picture</button>
         `;
       }
-      hero.addEventListener('click', () => fileInput.click());
+      hero.addEventListener('click', () => {
+        if (latestPhotoUrl) {
+          openImageModalWith(latestPhotoUrl);
+        }
+      });
+      const heroUploadBtn = hero.querySelector('.hero-upload');
+      if (heroUploadBtn) {
+        heroUploadBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          fileInput.click();
+        });
+      }
       homeGrid.appendChild(hero);
       const mixed = all.slice(0, 80);
       const firstFour = mixed.slice(0, 4);
@@ -1185,7 +1222,7 @@
         const snapBtn = document.getElementById('snapBtn');
         snapBtn.classList.add('attention');
         snapBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setTimeout(() => snapBtn.classList.remove('attention'), 2400);
+        setTimeout(() => snapBtn.classList.remove('attention'), 5000);
         return;
       }
       if (userType && item.category !== userType) {
@@ -1214,6 +1251,7 @@
       }
       const data = await res.json();
       showHero(data.resultUrl);
+      openImageModalWith(data.resultUrl);
       activeCategory = item.category;
       updateCrumbsResults();
       showResults();
