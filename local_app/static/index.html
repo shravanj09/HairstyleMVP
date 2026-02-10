@@ -408,21 +408,64 @@
       border-radius: 20px;
       box-shadow: 0 6px 16px rgba(0,0,0,.08);
     }
-    .hero-upload {
+    .top-right-panel {
       position: absolute;
-      top: 12px;
-      right: 12px;
-      padding: 8px 12px;
+      right: 16px;
+      top: 56px;
+      z-index: 5;
+    }
+    .top-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 8px;
       border-radius: 999px;
+      background: rgba(255,255,255,0.9);
       border: 2px solid var(--line);
-      background: #ffffff;
       font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.4px;
       text-transform: uppercase;
       font-family: "Syne", "Sora", "Segoe UI", Arial, sans-serif;
       box-shadow: 0 8px 18px rgba(0,0,0,.08);
+      white-space: nowrap;
+    }
+    .top-upload {
+      background: transparent;
+      border: none;
+      padding: 0;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      color: #111;
+      cursor: pointer;
+      text-decoration: underline;
+      font-family: "Syne", "Sora", "Segoe UI", Arial, sans-serif;
+    }
+    .top-choice {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .top-choice label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+    .top-choice input[type="radio"] { width: 12px; height: 12px; }
+    .top-choice.flash {
+      box-shadow: 0 0 0 3px rgba(255, 126, 230, 0.45), 0 0 0 6px rgba(0, 212, 255, 0.35), 0 12px 26px rgba(0,0,0,0.18);
+      animation: pulse 0.7s ease-in-out 3;
+    }
+    .top-choice-msg {
+      position: absolute;
+      right: 0;
+      top: -28px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #111;
+      color: #fff;
+      font-size: 11px;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+      font-family: "Syne", "Sora", "Segoe UI", Arial, sans-serif;
+      display: none;
     }
     .tile .meta { display: none; }
 
@@ -883,6 +926,18 @@
     </div>
 
     <div class="crumbs" id="crumbs" style="display:none;">Home  ›  AI Hairstyle  ›  Presets</div>
+    <div class="top-right-panel" id="topRightPanel">
+      <div class="top-choice-msg" id="homeChoiceMsg">Select who you are</div>
+      <div class="top-row">
+        <button class="top-upload" id="uploadBtn" type="button">Upload your picture</button>
+        <div class="top-choice" id="homeChoice">
+          <label><input type="radio" name="userTypeHome" value="Men"> <span>Men</span></label>
+          <label><input type="radio" name="userTypeHome" value="Women"> <span>Women</span></label>
+          <label><input type="radio" name="userTypeHome" value="Boys"> <span>Boy</span></label>
+          <label><input type="radio" name="userTypeHome" value="Girls"> <span>Girl</span></label>
+        </div>
+      </div>
+    </div>
     <div class="chips quick-filters" id="homeQuickChips"></div>
 
     <section id="homeView" class="content full">
@@ -917,15 +972,14 @@
     <div class="modal-card">
       <button class="modal-close" id="closeCameraX">×</button>
       <div class="camera-frame">
-        <div class="camera-choice" id="cameraChoice">
-          <div class="label">I am</div>
-          <div class="options">
-            <label><input type="radio" name="userType" value="Men"> <span>Men</span></label>
-            <label><input type="radio" name="userType" value="Women"> <span>Women</span></label>
-            <label><input type="radio" name="userType" value="Boys"> <span>Boy</span></label>
-            <label><input type="radio" name="userType" value="Girls"> <span>Girl</span></label>
+          <div class="camera-choice" id="cameraChoice">
+            <div class="options">
+            <label><input type="radio" name="userTypeCamera" value="Men"> <span>Men</span></label>
+            <label><input type="radio" name="userTypeCamera" value="Women"> <span>Women</span></label>
+            <label><input type="radio" name="userTypeCamera" value="Boys"> <span>Boy</span></label>
+            <label><input type="radio" name="userTypeCamera" value="Girls"> <span>Girl</span></label>
+            </div>
           </div>
-        </div>
         <video id="cameraVideo" autoplay playsinline></video>
         <canvas id="cameraOverlay" class="camera-overlay"></canvas>
         <div class="camera-hint" id="cameraHint">Center your face and come a bit closer.</div>
@@ -968,6 +1022,7 @@
     const limitModal = document.getElementById('limitModal');
     const limitText = document.getElementById('limitText');
     const limitClose = document.getElementById('limitClose');
+    const homeChoice = document.getElementById('homeChoice');
     const fileInput = document.getElementById('fileInput');
     const homeView = document.getElementById('homeView');
     const resultsView = document.getElementById('resultsView');
@@ -1162,6 +1217,35 @@
       setProcessing(false);
     }
 
+    function syncUserType(value) {
+      if (!value) return;
+      const selectors = ['#homeChoice input[name="userTypeHome"]', '#cameraChoice input[name="userTypeCamera"]'];
+      selectors.forEach((sel) => {
+        document.querySelectorAll(sel).forEach((input) => {
+          input.checked = input.value === value;
+        });
+      });
+    }
+
+    function setUserType(value) {
+      if (!value) return;
+      userType = value;
+      syncUserType(value);
+    }
+
+    function flashUserType() {
+      const homeChoice = document.getElementById('homeChoice');
+      const msg = document.getElementById('homeChoiceMsg');
+      if (homeChoice) {
+        homeChoice.classList.add('flash');
+        setTimeout(() => homeChoice.classList.remove('flash'), 2200);
+      }
+      if (msg) {
+        msg.style.display = 'inline-flex';
+        setTimeout(() => { msg.style.display = 'none'; }, 2200);
+      }
+    }
+
     function resetSessionState() {
       sessionResults = new Map();
       sessionResultList = [];
@@ -1237,6 +1321,11 @@
     }
 
     async function uploadPhoto(file) {
+      if (!userType) {
+        setStatusError('Select who you are.');
+        flashUserType();
+        return;
+      }
       await startSession();
       const form = new FormData();
       form.append('sessionId', sessionId);
@@ -1316,7 +1405,6 @@
           <div class="hero-collage">
             ${collageItems.map((item) => `<img src="${item.imageUrl}" alt="${item.major}">`).join('')}
           </div>
-          <button class="hero-upload" type="button">Upload your picture</button>
         `;
       }
       hero.addEventListener('click', () => {
@@ -1324,13 +1412,6 @@
           openImageModalWith(latestPhotoUrl);
         }
       });
-      const heroUploadBtn = hero.querySelector('.hero-upload');
-      if (heroUploadBtn) {
-        heroUploadBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          fileInput.click();
-        });
-      }
       homeGrid.appendChild(hero);
       const mixed = all.slice(0, 80);
       const firstFour = mixed.slice(0, 4);
@@ -1351,6 +1432,11 @@
     }
 
     async function onPresetClick(item) {
+      if (!userType) {
+        setStatusError('Select who you are.');
+        flashUserType();
+        return;
+      }
       if (!latestPhotoUrl) {
         setStatusError('Upload a photo first.');
         const snapBtn = document.getElementById('snapBtn');
@@ -1445,6 +1531,9 @@
       if (cameraModal.classList.contains('active')) return;
       cameraModal.classList.add('active');
       cameraActive = true;
+      if (userType) {
+        syncUserType(userType);
+      }
       captureBtn.disabled = true;
       captureBtn.style.display = 'none';
       resetAutoCaptureState();
@@ -1578,6 +1667,9 @@
       meshBusy = false;
       resetAutoCaptureState();
       setHint('');
+      if (userType) {
+        syncUserType(userType);
+      }
     }
 
     function resizeOverlay() {
@@ -1878,6 +1970,12 @@
     fileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
       if (!file) return;
+      if (!userType) {
+        setStatusError('Select who you are.');
+        flashUserType();
+        fileInput.value = '';
+        return;
+      }
       setStatus('Uploading...');
       await uploadPhoto(file);
       setStatus('Ready');
@@ -1946,21 +2044,33 @@
     document.getElementById('snapBtn').addEventListener('click', () => {
       openCamera();
     });
+    const uploadBtn = document.getElementById('uploadBtn');
+    if (uploadBtn) {
+      uploadBtn.addEventListener('click', () => fileInput.click());
+    }
 
-    cameraChoice.querySelectorAll('input[name="userType"]').forEach((input) => {
-      input.addEventListener('change', () => {
-        userType = input.value;
-        if (faceDetected && faceDistance === 'good') {
-          setHint('');
-          faceOk = true;
-          captureBtn.disabled = false;
-        } else {
-          captureBtn.disabled = true;
-        }
-        captureBtn.style.display = 'inline-flex';
-        updateAutoCapture();
-      });
-    });
+    if (homeChoice) {
+      homeChoice.addEventListener('change', (e) => handleUserTypeChange(e.target));
+      homeChoice.addEventListener('click', (e) => handleUserTypeChange(e.target));
+    }
+    if (cameraChoice) {
+      cameraChoice.addEventListener('change', (e) => handleUserTypeChange(e.target));
+      cameraChoice.addEventListener('click', (e) => handleUserTypeChange(e.target));
+    }
+
+    function handleUserTypeChange(target) {
+      if (!target || (target.name !== 'userTypeHome' && target.name !== 'userTypeCamera')) return;
+      setUserType(target.value);
+      if (faceDetected && faceDistance === 'good') {
+        setHint('');
+        faceOk = true;
+        captureBtn.disabled = false;
+      } else {
+        captureBtn.disabled = true;
+      }
+      captureBtn.style.display = 'inline-flex';
+      updateAutoCapture();
+    }
 
     loadHomePresets();
     moveNavUnderline();
