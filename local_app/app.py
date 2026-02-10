@@ -83,6 +83,7 @@ def scan_presets() -> Dict[str, Preset]:
 PRESETS: Dict[str, Preset] = scan_presets()
 PROMPTS_BY_FILENAME: Dict[str, str] = {}
 IDS_BY_FILENAME: Dict[str, str] = {}
+RESULTS_LIMIT = 5
 
 
 @app.on_event("startup")
@@ -156,6 +157,21 @@ def get_latest_photo(session_dir: Path) -> Path | None:
         if candidate.exists():
             return candidate
     return None
+
+
+def load_results(session_dir: Path) -> List[Dict[str, str]]:
+    results_path = session_dir / "results.json"
+    if not results_path.exists():
+        return []
+    try:
+        return json.loads(results_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+
+
+def save_results(session_dir: Path, results: List[Dict[str, str]]) -> None:
+    results_path = session_dir / "results.json"
+    results_path.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
 def upload_image_to_lightx(image_path: Path) -> str:
@@ -271,6 +287,18 @@ def apply_hairstyle(sessionId: str, presetId: str) -> Dict[str, str]:
     if not preset:
         raise HTTPException(status_code=404, detail="Preset not found")
 
+    results = load_results(session_dir)
+    for entry in results:
+        if entry.get("presetId") == presetId:
+            return {
+                "sessionId": sessionId,
+                "presetId": presetId,
+                "sourcePresetUrl": preset.to_dict()["imageUrl"],
+                "resultUrl": entry.get("resultUrl", ""),
+            }
+    if len(results) >= RESULTS_LIMIT:
+        raise HTTPException(status_code=429, detail="Session limit reached")
+
     prompt = get_prompt_for_preset(preset)
     if not prompt:
         raise HTTPException(status_code=404, detail="Prompt not found for preset")
@@ -294,11 +322,23 @@ def apply_hairstyle(sessionId: str, presetId: str) -> Dict[str, str]:
         with out_path.open("wb") as f:
             f.write(res.content)
 
+    result_url = f"/sessions/{sessionId}/{preset.category}/{out_path.name}"
+    results.append(
+        {
+            "presetId": presetId,
+            "category": preset.category,
+            "filename": out_path.name,
+            "resultUrl": result_url,
+            "createdAt": time.time(),
+        }
+    )
+    save_results(session_dir, results)
+
     return {
         "sessionId": sessionId,
         "presetId": presetId,
         "sourcePresetUrl": preset.to_dict()["imageUrl"],
-        "resultUrl": f"/sessions/{sessionId}/{preset.category}/{out_path.name}",
+        "resultUrl": result_url,
     }
 
 

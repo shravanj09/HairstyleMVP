@@ -562,6 +562,83 @@
       font-size: 18px;
       box-shadow: 0 6px 16px rgba(0,0,0,0.25);
     }
+    .result-thumbs {
+      display: none;
+      grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .result-thumb {
+      position: relative;
+      border: 2px solid var(--line);
+      border-radius: 10px;
+      padding: 0;
+      background: #fff;
+      cursor: pointer;
+      overflow: hidden;
+      height: 72px;
+    }
+    .result-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+    .result-thumb .thumb-id {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      font-size: 10px;
+      font-weight: 700;
+      color: #d15a00;
+      background: rgba(255,255,255,0.85);
+      padding: 2px 4px;
+      border-radius: 6px;
+      letter-spacing: 0.2px;
+      font-family: "Ink Free", "Sora", "Segoe UI", Arial, sans-serif;
+    }
+    .limit-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      background: rgba(10, 10, 12, 0.6);
+      z-index: 65;
+      padding: 24px;
+    }
+    .limit-modal.active { display: flex; }
+    .limit-card {
+      background: #ffffff;
+      border-radius: 14px;
+      padding: 18px 20px;
+      max-width: 320px;
+      width: 100%;
+      border: 2px solid var(--line);
+      box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+      text-align: center;
+    }
+    .limit-card h3 {
+      margin: 0 0 8px;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      font-family: "Syne", "Sora", "Segoe UI", Arial, sans-serif;
+    }
+    .limit-card p {
+      margin: 0 0 12px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .limit-card button {
+      border: none;
+      background: #111;
+      color: #fff;
+      border-radius: 999px;
+      padding: 8px 14px;
+      font-size: 12px;
+      cursor: pointer;
+    }
 
     .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
     .dropdown {
@@ -781,6 +858,9 @@
       .masonry { column-count: 2; }
       .results-layout { grid-template-columns: 1fr; }
     }
+    @media (hover: none) and (pointer: coarse) {
+      #snapBtn { display: none; }
+    }
   </style>
 </head>
 <body>
@@ -823,6 +903,7 @@
             <img id="heroImg" alt="preview" style="display:none" />
           </div>
           <div class="status" id="status">Ready</div>
+          <div class="result-thumbs" id="resultThumbs"></div>
         </div>
         <div class="panel">
           <div class="chips" id="quickChips"></div>
@@ -866,6 +947,13 @@
       <img id="imageModalImg" alt="Preview image" />
     </div>
   </div>
+  <div class="limit-modal" id="limitModal">
+    <div class="limit-card">
+      <h3>Limit Reached</h3>
+      <p id="limitText">You can generate up to 5 styles per photo.</p>
+      <button id="limitClose" type="button">OK</button>
+    </div>
+  </div>
   <script>
     const homeGrid = document.getElementById('homeGrid');
     const resultsGrid = document.getElementById('resultsGrid');
@@ -873,9 +961,13 @@
     const heroImg = document.getElementById('heroImg');
     const heroPlaceholder = document.getElementById('heroPlaceholder');
     const heroProcessing = document.getElementById('heroProcessing');
+    const resultThumbs = document.getElementById('resultThumbs');
     const imageModal = document.getElementById('imageModal');
     const imageModalImg = document.getElementById('imageModalImg');
     const imageModalClose = document.getElementById('imageModalClose');
+    const limitModal = document.getElementById('limitModal');
+    const limitText = document.getElementById('limitText');
+    const limitClose = document.getElementById('limitClose');
     const fileInput = document.getElementById('fileInput');
     const homeView = document.getElementById('homeView');
     const resultsView = document.getElementById('resultsView');
@@ -896,6 +988,9 @@
     let activeCategory = 'Home';
     let sessionId = null;
     let latestPhotoUrl = null;
+    let sessionResults = new Map();
+    let sessionResultList = [];
+    let sessionCallCount = 0;
     let galleryFilter = 'All';
     let userType = null;
     let cameraStream = null;
@@ -1067,6 +1162,43 @@
       setProcessing(false);
     }
 
+    function resetSessionState() {
+      sessionResults = new Map();
+      sessionResultList = [];
+      sessionCallCount = 0;
+      renderResultThumbs();
+    }
+
+    function renderResultThumbs() {
+      if (!resultThumbs) return;
+      resultThumbs.innerHTML = '';
+      if (!sessionResultList.length) {
+        resultThumbs.style.display = 'none';
+        return;
+      }
+      resultThumbs.style.display = 'grid';
+      sessionResultList.forEach((entry) => {
+        const btn = document.createElement('button');
+        btn.className = 'result-thumb';
+        btn.type = 'button';
+        btn.innerHTML = `
+          <img src="${entry.url}" alt="Result ${entry.displayId || ''}">
+          <span class="thumb-id">${entry.displayId || ''}</span>
+        `;
+        btn.addEventListener('click', () => openImageModalWith(entry.url));
+        resultThumbs.appendChild(btn);
+      });
+    }
+
+    function showLimitModal(message) {
+      if (limitText) limitText.textContent = message;
+      if (limitModal) limitModal.classList.add('active');
+    }
+
+    function closeLimitModal() {
+      if (limitModal) limitModal.classList.remove('active');
+    }
+
     function showHero(url) {
       if (!url) {
         heroImg.style.display = 'none';
@@ -1096,6 +1228,7 @@
 
     async function startSession(typeOverride) {
       const type = typeOverride || userType;
+      resetSessionState();
       const url = type ? `/api/session/start?userType=${encodeURIComponent(type)}` : '/api/session/start';
       const res = await fetch(url, { method: 'POST' });
       const data = await res.json();
@@ -1104,7 +1237,7 @@
     }
 
     async function uploadPhoto(file) {
-      if (!sessionId) await startSession();
+      await startSession();
       const form = new FormData();
       form.append('sessionId', sessionId);
       form.append('file', file);
@@ -1112,6 +1245,7 @@
       const data = await res.json();
       latestPhotoUrl = data.imageUrl;
       showHero(latestPhotoUrl);
+      loadHomePresets();
     }
 
     function labelFromFilename(filename) {
@@ -1225,6 +1359,19 @@
         setTimeout(() => snapBtn.classList.remove('attention'), 5000);
         return;
       }
+      if (sessionResults.has(item.id)) {
+        const cached = sessionResults.get(item.id);
+        showHero(cached.url);
+        openImageModalWith(cached.url);
+        activeCategory = item.category;
+        updateCrumbsResults();
+        showResults();
+        return;
+      }
+      if (sessionCallCount >= 5) {
+        showLimitModal('You can generate up to 5 styles per photo.');
+        return;
+      }
       if (userType && item.category !== userType) {
         return;
       }
@@ -1245,13 +1392,24 @@
             // ignore
           }
         }
+        if (res.status === 429) {
+          clearStatusLoading();
+          showLimitModal('You can generate up to 5 styles per photo.');
+          return;
+        }
         clearStatusLoading();
         setStatusError(errorText);
         return;
       }
       const data = await res.json();
+      sessionCallCount += 1;
       showHero(data.resultUrl);
       openImageModalWith(data.resultUrl);
+      if (!sessionResults.has(item.id)) {
+        sessionResults.set(item.id, { url: data.resultUrl, displayId: item.displayId || '' });
+        sessionResultList.push({ presetId: item.id, url: data.resultUrl, displayId: item.displayId || '' });
+        renderResultThumbs();
+      }
       activeCategory = item.category;
       updateCrumbsResults();
       showResults();
@@ -1702,6 +1860,12 @@
     imageModal.addEventListener('click', (e) => {
       if (e.target === imageModal) closeImageModal();
     });
+    if (limitClose) limitClose.addEventListener('click', () => closeLimitModal());
+    if (limitModal) {
+      limitModal.addEventListener('click', (e) => {
+        if (e.target === limitModal) closeLimitModal();
+      });
+    }
 
     fileInput.addEventListener('change', async (e) => {
       const file = e.target.files[0];
