@@ -410,8 +410,8 @@
     }
     .hero-upload {
       position: absolute;
-      left: 12px;
-      bottom: 12px;
+      top: 12px;
+      right: 12px;
       padding: 8px 12px;
       border-radius: 999px;
       border: 2px solid var(--line);
@@ -859,7 +859,7 @@
       .results-layout { grid-template-columns: 1fr; }
     }
     @media (hover: none) and (pointer: coarse) {
-      #snapBtn { display: none; }
+      #snapBtn { display: none !important; }
     }
   </style>
 </head>
@@ -1245,6 +1245,7 @@
       const data = await res.json();
       latestPhotoUrl = data.imageUrl;
       showHero(latestPhotoUrl);
+      showHome();
       loadHomePresets();
     }
 
@@ -1431,6 +1432,14 @@
       if (homeQuickChips) homeQuickChips.style.display = 'none';
       quickChips.style.display = 'flex';
       loadCategoryPresets(activeCategory);
+    }
+
+    function showHome() {
+      homeView.style.display = 'block';
+      resultsView.style.display = 'none';
+      if (homeQuickChips) homeQuickChips.style.display = 'none';
+      quickChips.style.display = 'none';
+      crumbs.textContent = 'Home  ›  AI Hairstyle  ›  Presets';
     }
 
     async function openCamera() {
