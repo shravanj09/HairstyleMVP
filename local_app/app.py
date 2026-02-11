@@ -27,6 +27,12 @@ LIGHTX_UPLOAD_URL = "https://api.lightxeditor.com/external/api/v2/uploadImageUrl
 LIGHTX_HAIRSTYLE_URL = "https://api.lightxeditor.com/external/api/v2/hairstyle"
 LIGHTX_STATUS_URL = "https://api.lightxeditor.com/external/api/v2/order-status"
 
+API_PROVIDER = os.getenv("HAIRSTYLE_PROVIDER", "lightx").strip().lower()
+API_MARKET_KEY = os.getenv("API_MARKET_KEY")
+API_MARKET_UPLOAD_URL = "https://prod.api.market/api/v1/magicapi/image-upload/upload"
+API_MARKET_HAIRSTYLE_URL = "https://prod.api.market/api/v1/lightxeditor/hairstyle/hairstyle/"
+API_MARKET_STATUS_URL = "https://prod.api.market/api/v1/lightxeditor/hairstyle/order-status/"
+
 app = FastAPI(title="LOOKS Local MVP")
 app.add_middleware(
     CORSMiddleware,
@@ -84,6 +90,7 @@ PRESETS: Dict[str, Preset] = scan_presets()
 PROMPTS_BY_FILENAME: Dict[str, str] = {}
 IDS_BY_FILENAME: Dict[str, str] = {}
 RESULTS_LIMIT = 5
+API_CALLS_LOG = "api_calls.json"
 
 
 @app.on_event("startup")
@@ -174,6 +181,21 @@ def save_results(session_dir: Path, results: List[Dict[str, str]]) -> None:
     results_path.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def load_api_calls(session_dir: Path) -> List[Dict[str, object]]:
+    log_path = session_dir / API_CALLS_LOG
+    if not log_path.exists():
+        return []
+    try:
+        return json.loads(log_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return []
+
+
+def save_api_calls(session_dir: Path, calls: List[Dict[str, object]]) -> None:
+    log_path = session_dir / API_CALLS_LOG
+    log_path.write_text(json.dumps(calls, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
 def upload_image_to_lightx(image_path: Path) -> str:
     if not LIGHTX_API_KEY:
         raise HTTPException(status_code=500, detail="LIGHTX_API_KEY is not set")
@@ -185,6 +207,7 @@ def upload_image_to_lightx(image_path: Path) -> str:
     if res.status_code != 200:
         raise HTTPException(status_code=502, detail=f"LightX uploadImageUrl failed: {res.text}")
     data = res.json()
+    print(f"[apimarket] upload response keys: {list(data.keys())}")
     if data.get("statusCode") != 2000:
         raise HTTPException(status_code=502, detail=f"LightX uploadImageUrl error: {data}")
     body = data.get("body") or {}
@@ -197,6 +220,24 @@ def upload_image_to_lightx(image_path: Path) -> str:
     if put_res.status_code not in (200, 201):
         raise HTTPException(status_code=502, detail=f"LightX PUT upload failed: {put_res.text}")
     return image_url
+
+
+def upload_image_to_apimarket(image_path: Path) -> str:
+    if not API_MARKET_KEY:
+        raise HTTPException(status_code=500, detail="API_MARKET_KEY is not set")
+    content_type = "image/jpeg" if image_path.suffix.lower() in {".jpg", ".jpeg"} else "image/png"
+    headers = {"accept": "application/json", "x-api-market-key": API_MARKET_KEY}
+    with image_path.open("rb") as f:
+        files = {"filename": (image_path.name, f, content_type)}
+        res = requests.post(API_MARKET_UPLOAD_URL, headers=headers, files=files, timeout=60)
+    if res.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"API Market upload failed: {res.text}")
+    data = res.json()
+    root = data.get("root") or data.get("body") or data
+    url = root.get("url")
+    if not url:
+        raise HTTPException(status_code=502, detail=f"API Market upload missing url: {data}")
+    return url
 
 
 def request_hairstyle(image_url: str, prompt: str) -> str:
@@ -213,6 +254,23 @@ def request_hairstyle(image_url: str, prompt: str) -> str:
     order_id = body.get("orderId")
     if not order_id:
         raise HTTPException(status_code=502, detail="LightX hairstyle missing orderId")
+    return order_id
+
+
+def request_hairstyle_apimarket(image_url: str, prompt: str) -> str:
+    if not API_MARKET_KEY:
+        raise HTTPException(status_code=500, detail="API_MARKET_KEY is not set")
+    headers = {"accept": "*/*", "x-api-market-key": API_MARKET_KEY, "Content-Type": "application/json"}
+    res = requests.post(API_MARKET_HAIRSTYLE_URL, json={"imageUrl": image_url, "textPrompt": prompt}, headers=headers, timeout=60)
+    if res.status_code != 200:
+        raise HTTPException(status_code=502, detail=f"API Market hairstyle failed: {res.text}")
+    data = res.json()
+    if data.get("statusCode") != 2000:
+        raise HTTPException(status_code=502, detail=f"API Market hairstyle error: {data}")
+    body = data.get("body") or {}
+    order_id = body.get("orderId")
+    if not order_id:
+        raise HTTPException(status_code=502, detail="API Market hairstyle missing orderId")
     return order_id
 
 
@@ -235,6 +293,27 @@ def poll_hairstyle(order_id: str) -> str:
         if status == "failed":
             break
     raise HTTPException(status_code=502, detail="LightX hairstyle output not ready")
+
+
+def poll_hairstyle_apimarket(order_id: str) -> str:
+    headers = {"accept": "*/*", "x-api-market-key": API_MARKET_KEY, "Content-Type": "application/json"}
+    for _ in range(5):
+        time.sleep(3)
+        res = requests.post(API_MARKET_STATUS_URL, json={"orderId": order_id}, headers=headers, timeout=30)
+        if res.status_code != 200:
+            continue
+        data = res.json()
+        if data.get("statusCode") != 2000:
+            continue
+        body = data.get("body") or {}
+        status = body.get("status")
+        if status == "active":
+            output = body.get("output")
+            if output:
+                return output
+        if status == "failed":
+            break
+    raise HTTPException(status_code=502, detail="API Market hairstyle output not ready")
 
 
 @app.get("/api/presets")
@@ -306,9 +385,37 @@ def apply_hairstyle(sessionId: str, presetId: str) -> Dict[str, str]:
     if not source_photo or not source_photo.exists():
         raise HTTPException(status_code=404, detail="Source photo not found")
 
-    image_url = upload_image_to_lightx(source_photo)
-    order_id = request_hairstyle(image_url, prompt)
-    output_url = poll_hairstyle(order_id)
+    calls = load_api_calls(session_dir)
+    call_entry: Dict[str, object] = {
+        "presetId": presetId,
+        "provider": API_PROVIDER,
+        "prompt": prompt,
+        "status": "started",
+        "startedAt": time.time(),
+    }
+    calls.append(call_entry)
+    save_api_calls(session_dir, calls)
+
+    try:
+        if API_PROVIDER == "apimarket":
+            image_url = upload_image_to_apimarket(source_photo)
+            order_id = request_hairstyle_apimarket(image_url, prompt)
+            output_url = poll_hairstyle_apimarket(order_id)
+        else:
+            image_url = upload_image_to_lightx(source_photo)
+            order_id = request_hairstyle(image_url, prompt)
+            output_url = poll_hairstyle(order_id)
+        call_entry["status"] = "success"
+        call_entry["orderId"] = order_id
+        call_entry["outputUrl"] = output_url
+        call_entry["completedAt"] = time.time()
+        save_api_calls(session_dir, calls)
+    except Exception as exc:
+        call_entry["status"] = "failed"
+        call_entry["error"] = str(exc)
+        call_entry["completedAt"] = time.time()
+        save_api_calls(session_dir, calls)
+        raise
 
     result_dir = session_dir / preset.category
     result_dir.mkdir(parents=True, exist_ok=True)
